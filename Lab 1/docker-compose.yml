@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  http-server:
+    build: .
+    container_name: http_file_server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./content:/content:ro
+    networks:
+      - lab-network
+    restart: unless-stopped
+
+networks:
+  lab-network:
+    driver: bridge

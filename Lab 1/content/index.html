@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My PDF Collection</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 15px;
+        }
+        .logo {
+            display: block;
+            margin: 20px auto;
+            max-width: 300px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .description {
+            text-align: center;
+            color: #666;
+            margin: 20px 0;
+            font-size: 18px;
+        }
+        .books-section {
+            margin-top: 30px;
+        }
+        .books-section h2 {
+            color: #667eea;
+            border-left: 4px solid #667eea;
+            padding-left: 10px;
+        }
+        .book-list {
+            list-style: none;
+            padding: 0;
+        }
+        .book-list li {
+            background: #f8f9fa;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .book-list li:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .book-list a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 16px;
+        }
+        .book-list a:hover {
+            text-decoration: underline;
+        }
+        .folder-link {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+        }
+        .folder-link a {
+            color: #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to my page</h1>
+
+        <img src="Canvas.png" alt="Library Logo" class="logo">
+
+        <p class="description">
+            You can browse through my main collection below
+            as well as access the Browse Collections below to see the 2 books attached
+        </p>
+
+        <div class="books-section">
+            <h2>Main Collection</h2>
+            <ul class="book-list">
+                <li><a href="/Task2.pdf">📜Laboratory work Nr 2</a></li>
+                <li><a href="/Task3.pdf">📜Laboratory work Nr 3</a></li>
+                <li><a href="/Task4.pdf">📜Laboratory work Nr 4</a></li>
+                <li><a href="/error.jpg">📜Nonexistent file</a></li>
+            </ul>
+        </div>
+
+        <div class="books-section">
+            <h2>📂 Browse Collections</h2>
+            <ul class="book-list">
+                <li class="folder-link"><a href="/computer_science/">Computer Science Books</a></li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
