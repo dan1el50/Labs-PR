@@ -2,3 +2,4 @@
 ![img.png](Images/multi_concurent.png)
 ![img.png](Images/race_condition.png)
 ![img.png](Images/thread_safe.png)
+![img.png](Images/rate_limit.png)
