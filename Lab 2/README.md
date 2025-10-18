@@ -1,2 +1,4 @@
 ![img.png](Images/single_concurent.png)
 ![img.png](Images/multi_concurent.png)
+![img.png](Images/race_condition.png)
+![img.png](Images/thread_safe.png)
