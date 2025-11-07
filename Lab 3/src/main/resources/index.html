@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Scramble Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .player-info {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .player-info label {
+            font-weight: bold;
+            margin-right: 10px;
+            color: #555;
+        }
+
+        .player-info input {
+            padding: 8px 12px;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+            font-size: 1em;
+            width: 200px;
+        }
+
+        .board {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+        }
+
+        .board.hidden {
+            display: none;
+        }
+
+        .board.grid-3x3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .board.grid-2x2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .board.grid-4x4 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .board.grid-5x5 {
+            grid-template-columns: repeat(5, 1fr);
+        }
+
+        .card {
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 3em;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .card:hover:not(:disabled) {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .card:active:not(:disabled) {
+            transform: translateY(-2px);
+        }
+
+        .card:disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .card.face-down {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-size: 2em;
+        }
+
+        .card.face-up {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .card.controlled {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.6), 0 0 20px rgba(0, 242, 254, 0.4);
+        }
+
+        .card.matched {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            box-shadow: 0 4px 15px rgba(67, 233, 123, 0.6);
+        }
+
+        .card.none {
+            background: #ddd;
+            cursor: default;
+            box-shadow: none;
+        }
+
+        .card.none:hover {
+            transform: none;
+        }
+
+        .status {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+            min-height: 60px;
+        }
+
+        .status.hidden {
+            display: none;
+        }
+
+        .status-text {
+            color: #333;
+            font-size: 1em;
+            margin-bottom: 5px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            border: 2px solid #ddd;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .info-box {
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ff9800;
+            font-size: 0.95em;
+            color: #666;
+        }
+
+        .error {
+            color: #d32f2f;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .success {
+            color: #388e3c;
+            background: #e8f5e9;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🎮 Memory Scramble</h1>
+    <p class="subtitle">Find matching pairs!</p>
+
+    <div class="player-info">
+        <label for="playerInput">Your Player ID:</label>
+        <input type="text" id="playerInput" placeholder="e.g., player1" value="player1">
+    </div>
+
+    <div id="infoBox" class="info-box">
+        💡 <strong>How to play:</strong> Enter your player ID and click "Start Game" to begin. Click cards to flip them and find matching pairs!
+    </div>
+
+    <div id="message" class="status hidden"></div>
+
+    <div id="board" class="board grid-3x3 hidden"></div>
+
+    <div class="button-group">
+        <button id="startBtn" class="btn-primary" onclick="startGame()">Start Game</button>
+        <button id="resetBtn" class="btn-secondary hidden" onclick="resetGame()">Reset Game</button>
+    </div>
+
+    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 0.9em; color: #999; text-align: center;">
+        <p>🌐 Server: <strong>localhost:8000</strong></p>
+    </div>
+</div>
+
+<script>
+    const API_BASE = 'http://localhost:8000';
+    let gameState = {};
+    let playerID = 'player1';
+    let isWaiting = false;
+    let gameStarted = false;
+
+    // Start the game
+    async function startGame() {
+        playerID = document.getElementById('playerInput').value.trim();
+        if (!playerID) {
+            showMessage('⚠️ Please enter a player ID', 'error');
+            return;
+        }
+
+        // Hide info box and start button
+        document.getElementById('infoBox').classList.add('hidden');
+        document.getElementById('startBtn').classList.add('hidden');
+
+        // Show board and reset button
+        document.getElementById('board').classList.remove('hidden');
+        document.getElementById('resetBtn').classList.remove('hidden');
+
+        gameStarted = true;
+        await refreshBoard();
+        showMessage('🎮 Game started! Find all the matching pairs!', 'success');
+    }
+
+    // Reset the game
+    async function resetGame() {
+        if (!confirm('Are you sure you want to reset the game?')) {
+            return;
+        }
+
+        try {
+            // Call the server to reset the board state
+            const response = await fetch(`${API_BASE}/reset/${playerID}`);
+
+            if (response.ok) {
+                // After server resets, reload the page for a fresh UI
+                window.location.reload();
+            } else {
+                showMessage('❌ Error resetting game', 'error');
+            }
+        } catch (error) {
+            // If API fails, just reload anyway
+            window.location.reload();
+        }
+    }
+
+
+    // Refresh and display the board
+    async function refreshBoard() {
+        try {
+            isWaiting = true;
+            const response = await fetch(`${API_BASE}/look/${playerID}`);
+            const text = await response.text();
+
+            if (!response.ok) {
+                showMessage(`❌ Error: ${text}`, 'error');
+                isWaiting = false;
+                return;
+            }
+
+            parseAndDisplayBoard(text);
+            isWaiting = false;
+        } catch (error) {
+            showMessage(`❌ Connection error: ${error.message}`, 'error');
+            isWaiting = false;
+        }
+    }
+
+    // Parse board text and display it
+    function parseAndDisplayBoard(boardText) {
+        const lines = boardText.split('\n').filter(l => l.trim());
+        const dims = lines[0].split('x');
+        const rows = parseInt(dims[0]);
+        const cols = parseInt(dims[1]);
+
+        gameState = {
+            rows: rows,
+            cols: cols,
+            cards: []
+        };
+
+        const boardDiv = document.getElementById('board');
+        boardDiv.className = `board grid-${rows}x${cols}`;
+        boardDiv.innerHTML = '';
+
+        let cardIndex = 0;
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+                const cardText = lines[cardIndex + 1].trim();
+                const card = {
+                    row: i,
+                    col: j,
+                    state: cardText
+                };
+                gameState.cards.push(card);
+
+                const button = createCardButton(i, j, cardText);
+                boardDiv.appendChild(button);
+                cardIndex++;
+            }
+        }
+    }
+
+    // Create a card button
+    function createCardButton(row, col, state) {
+        const button = document.createElement('button');
+        button.className = 'card';
+        button.dataset.row = row;
+        button.dataset.col = col;
+
+        let displayText = '?';
+        let cssClass = 'face-down';
+
+        if (state === 'none') {
+            displayText = '';
+            cssClass = 'none';
+            button.disabled = true;
+        } else if (state === 'down') {
+            displayText = '❓';
+            cssClass = 'face-down';
+        } else if (state.startsWith('my ')) {
+            const card = state.substring(3);
+            displayText = card;
+            cssClass = 'face-up controlled';
+        } else if (state.startsWith('up ')) {
+            const card = state.substring(3);
+            displayText = card;
+            cssClass = 'face-up';
+        }
+
+        button.textContent = displayText;
+        button.className += ' ' + cssClass;
+
+        if (cssClass !== 'none') {
+            button.onclick = () => flipCard(row, col);
+        }
+
+        return button;
+    }
+
+    // Flip a card
+    async function flipCard(row, col) {
+        if (isWaiting) return;
+
+        try {
+            isWaiting = true;
+            showMessage('🔄 Processing your move...', 'info');
+
+            const response = await fetch(`${API_BASE}/flip/${playerID}/${row},${col}`);
+            const text = await response.text();
+
+            if (!response.ok) {
+                showMessage(`❌ Error: ${text}`, 'error');
+                isWaiting = false;
+                return;
+            }
+
+            parseAndDisplayBoard(text);
+
+            // Check if game is won
+            if (isGameWon()) {
+                showMessage('🎉 Congratulations! You found all the pairs!', 'success');
+            } else {
+                showMessage('✅ Move completed!', 'success');
+            }
+
+            isWaiting = false;
+        } catch (error) {
+            showMessage(`❌ Connection error: ${error.message}`, 'error');
+            isWaiting = false;
+        }
+    }
+
+    // Check if all cards are matched (game won)
+    function isGameWon() {
+        return gameState.cards.every(card => card.state === 'none');
+    }
+
+    // Show a message
+    function showMessage(text, type = 'info') {
+        const messageDiv = document.getElementById('message');
+        messageDiv.className = 'status ' + type;
+        messageDiv.innerHTML = text;
+        messageDiv.classList.remove('hidden');
+
+        if (type === 'success' || type === 'error') {
+            setTimeout(() => {
+                if (!isGameWon()) {
+                    messageDiv.classList.add('hidden');
+                }
+            }, 3000);
+        }
+    }
+</script>
+</body>
+</html>
