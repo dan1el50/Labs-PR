@@ -125,48 +125,87 @@ public class Board {
     }
 
     /**
-     * Gets board dimensions.
+     * Returns the dimensions of the board.
      *
-     * @return [rows, cols]
+     * Precondition:
+     * - None (always safe to call)
+     *
+     * Postcondition:
+     * - Board state is unchanged
+     * - Returns array [rows, cols] where rows > 0 and cols > 0
+     *
+     * Thread Safety:
+     * This method returns immutable primitives, so it's thread-safe
+     * even though it's not synchronized.
+     *
+     * @return array containing [rows, cols]
      */
     public int[] getDimensions() {
         return new int[]{rows, cols};
     }
 
     /**
-     * Gets the card identifier at position (row, col).
+     * Returns the card identifier at the specified position.
      *
      * Precondition:
-     * - 0 <= row < rows and 0 <= col < cols
+     * - 0 <= row < rows
+     * - 0 <= col < cols
+     *
+     * Postcondition:
+     * - Board state is unchanged
+     * - Returns card identifier (e.g., "🦄") or null if no card exists
+     *
+     * Thread Safety:
+     * Synchronized method - safe for concurrent access.
      *
      * @param row the row index
      * @param col the column index
-     * @return card identifier, or null if no card exists
+     * @return card identifier or null if position is empty (NONE)
      */
     public synchronized String getCard(int row, int col) {
         return board[row][col];
     }
 
     /**
-     * Gets the state of card at position (row, col).
+     * Returns the state of the card at the specified position.
      *
      * Precondition:
-     * - 0 <= row < rows and 0 <= col < cols
+     * - 0 <= row < rows
+     * - 0 <= col < cols
+     *
+     * Postcondition:
+     * - Board state is unchanged
+     * - Returns one of: NONE, FACE_DOWN, FACE_UP_CONTROLLED, FACE_UP_UNCONTROLLED
+     *
+     * Thread Safety:
+     * Synchronized method - safe for concurrent access.
      *
      * @param row the row index
      * @param col the column index
-     * @return card state
+     * @return the CardState at this position
      */
     public synchronized CardState getState(int row, int col) {
         return state[row][col];
     }
 
     /**
-     * Gets the player who controls this card, or null if uncontrolled.
+     * Returns the player ID controlling the card at this position, or null.
+     *
+     * Precondition:
+     * - 0 <= row < rows
+     * - 0 <= col < cols
+     *
+     * Postcondition:
+     * - Board state is unchanged
+     * - Returns player ID string if card is controlled, null otherwise
+     *
+     * Thread Safety:
+     * Synchronized method - safe for concurrent access.
+     * ConcurrentHashMap ensures thread-safe map access.
      *
      * @param row the row index
      * @param col the column index
-     * @return player ID or null
+     * @return player ID controlling this card, or null if uncontrolled
      */
     public synchronized String getController(int row, int col) {
         return playerControl.get(row + "," + col);
@@ -394,10 +433,24 @@ public class Board {
     }
 
     /**
-     * Checks if player has a first card waiting for second flip.
+     * Checks if a player has a first card waiting for a second flip.
      *
-     * @param playerId the player ID
-     * @return true if player has first card pending
+     * This is used by Commands to determine if prepareForNextMove()
+     * should be called before a flip operation.
+     *
+     * Precondition:
+     * - playerId is a non-empty string
+     *
+     * Postcondition:
+     * - Board state is unchanged
+     * - Returns true if player has made their first flip and is waiting
+     *   for second flip, false otherwise
+     *
+     * Thread Safety:
+     * Synchronized method - safe for concurrent access.
+     *
+     * @param playerId the player ID to check
+     * @return true if player has a first card pending, false otherwise
      */
     public synchronized boolean hasFirstCard(String playerId) {
         return playerFirstCard.containsKey(playerId);
@@ -449,8 +502,27 @@ public class Board {
     }
 
     /**
-     * Resets board to initial state (all cards face-down).
-     * Used for fresh game start.
+     * Resets the board to initial state (all cards face-down).
+     *
+     * Used for starting a fresh game without creating a new Board instance.
+     *
+     * Precondition:
+     * - None (always safe to call)
+     *
+     * Postcondition:
+     * - All cards that exist (not NONE) are turned face-down
+     * - All player control is cleared (playerControl is empty)
+     * - All pending first cards are cleared (playerFirstCard is empty)
+     * - Rep invariant is maintained
+     *
+     * Thread Safety:
+     * Synchronized method - safe for concurrent access.
+     * Should typically be called when no active games are in progress
+     * to avoid disrupting ongoing games.
+     *
+     * Effects:
+     * - Resets board to fresh game state
+     * - Notifies waiting threads (via checkRep)
      */
     public synchronized void resetBoard() {
         checkRep();

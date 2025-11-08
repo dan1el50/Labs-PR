@@ -5,106 +5,85 @@ import com.memorygame.Board;
 /**
  * Commands module for the Memory Scramble game.
  *
- * This module is the ONLY interface that the HTTP server should call.
- * It translates HTTP requests into Board operations and provides
- * responses in the format required by the specification.
+ * This module provides the application-level interface between the HTTP server
+ * and the Board ADT. It translates HTTP requests into Board method calls and
+ * formats Board responses for HTTP transmission.
  *
- * Specification:
- * - GET /look/:player → returns current board state for player
- * - GET /flip/:player/:row,:col → flips card at (row, col) for player
+ * Representation Invariant:
+ * - board != null (always references a valid Board instance)
+ *
+ * Abstraction Function:
+ * AF(board) = A command processor that executes game operations on the shared
+ *             board instance and returns results as formatted strings
  *
  * Safety from Rep Exposure:
- * - Board is private and not returned to caller
- * - All responses are formatted as strings
+ * - The board field is private and final
+ * - Methods only return immutable Strings (board state representations)
+ * - Thread safety is delegated to Board's synchronized methods
+ *
+ * Thread Safety:
+ * Thread-safe because board mutations happen in Board (which is synchronized),
+ * and no mutable state is maintained in this class.
  */
 public class Commands {
+
+    /** The shared game board instance. */
     private final Board board;
 
     /**
-     * Constructs the Commands module with a given board.
+     * Constructs a Commands instance wrapping the given board.
      *
-     * Precondition:
-     * - board is not null
-     *
-     * Postcondition:
-     * - Commands instance is ready to handle requests
-     *
-     * @param board the game board (must not be null)
+     * @param board the game board to execute commands on
+     * @throws IllegalArgumentException if board is null
      */
     public Commands(Board board) {
         if (board == null) {
-            throw new IllegalArgumentException("Board must not be null");
+            throw new IllegalArgumentException("Board cannot be null");
         }
         this.board = board;
+        checkRep();
     }
 
     /**
-     * Returns the current board state for the given player.
+     * Executes a flip command for the given player at the specified position.
      *
-     * Specification:
-     * - Endpoint: GET /look/:player
-     * - Returns full board state visible to this player
-     *
-     * Precondition:
-     * - player must be a non-empty string
-     *
-     * Postcondition:
-     * - Returns board state formatted as "rows x cols" followed by card states
-     * - Each card state is "none", "down", "my CARD", or "up CARD"
-     *
-     * @param player the player ID
-     * @return board state string
-     * @throws IllegalArgumentException if player is null or empty
-     */
-    public String look(String player) {
-        if (player == null || player.isEmpty()) {
-            throw new IllegalArgumentException("Player ID must not be empty");
-        }
-        return board.look(player);
-    }
-
-    /**
-     * Flips a card at the given position for the player.
-     *
-     * Specification:
-     * - Endpoint: GET /flip/:player/:row,:col
-     * - Attempts to flip card, may block if controlled by another player
+     * Implements the /flip/:player/:row,:col API endpoint.
+     * Handles all game logic including blocking when cards are controlled by other players.
      *
      * Precondition:
      * - player must be a non-empty string
-     * - row and col must be valid indices (0 <= row < rows, 0 <= col < cols)
+     * - 0 <= row < board.rows and 0 <= col < board.cols
      *
      * Postcondition:
-     * - Card state is updated according to game rules
-     * - Returns updated board state or error message
-     * - May block if card is controlled by another player (blocking uses Object.wait())
+     * - Previous unmatched cards are turned face-down (Rule 3-B)
+     * - Previous matched pairs are removed (Rule 3-A)
+     * - Card at (row, col) is flipped according to game rules
+     * - Returns string representation of updated board state
      *
-     * @param player the player ID
-     * @param row the row index
-     * @param col the column index
-     * @return updated board state or error message
-     * @throws IllegalArgumentException if player is null/empty or position is invalid
+     * Thread Safety:
+     * Thread-safe because it delegates to Board's synchronized methods.
+     * Multiple players can call this concurrently without data corruption.
+     *
+     * Blocking Behavior:
+     * May block up to 50ms if attempting to flip a card controlled by another player (Rule 1-D).
+     *
+     * @param player the player ID making the move
+     * @param row the row index of the card to flip
+     * @param col the column index of the card to flip
+     * @return string representation of the updated board state, or "ERROR: <message>"
+     * @throws IllegalArgumentException if player is null/empty or position invalid
      */
     public String flip(String player, int row, int col) {
         if (player == null || player.isEmpty()) {
             throw new IllegalArgumentException("Player ID must not be empty");
         }
         if (row < 0 || col < 0) {
-            throw new IllegalArgumentException("Invalid position");
+            throw new IllegalArgumentException("Invalid position: (" + row + "," + col + ")");
         }
 
         try {
-            // Only prepare board if player is starting a new turn (no first card stored)
-            // This checks if the player has a first card waiting for second flip
-            if (!board.hasFirstCard(player)) {
-                // Starting a new turn - cleanup from previous turn
-                board.prepareForNextMove(player);
-            }
-
-            // Make the flip
+            board.prepareForNextMove(player);
             board.flip(row, col, player);
-
-            // Return current board state
             return board.look(player);
         } catch (Exception e) {
             return "ERROR: " + e.getMessage();
@@ -112,21 +91,57 @@ public class Commands {
     }
 
     /**
-     * Resets the board for a fresh game.
+     * Returns the current board state visible to the given player.
      *
-     * Specification:
-     * - Endpoint: GET /reset/:player
-     * - Resets all cards to face-down
+     * Implements the /look/:player API endpoint.
+     * Returns text representation where player's cards show as "my <card>",
+     * others' cards as "up <card>", face-down as "down", and removed as "none".
      *
      * Precondition:
      * - player must be a non-empty string
      *
      * Postcondition:
-     * - Board is reset to initial state
+     * - Board state is unchanged
+     * - Returns string format: "3x3\nmy 🦄\ndown\n..."
+     *
+     * Thread Safety:
+     * Thread-safe read-only operation. Multiple players can call concurrently.
+     *
+     * @param player the player ID requesting the board state
+     * @return string representation of the board state visible to this player
+     * @throws IllegalArgumentException if player is null or empty
+     */
+    public String look(String player) {
+        if (player == null || player.isEmpty()) {
+            throw new IllegalArgumentException("Player ID must not be empty");
+        }
+
+        try {
+            return board.look(player);
+        } catch (Exception e) {
+            return "ERROR: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Resets the board to initial state (all cards face-down).
+     *
+     * Implements the /reset/:player API endpoint.
+     * Clears all player control and turns all cards face-down.
+     *
+     * Precondition:
+     * - player must be a non-empty string
+     *
+     * Postcondition:
+     * - All cards are face-down (except NONE cards)
+     * - No players control any cards
      * - Returns fresh board state
      *
-     * @param player the player ID
-     * @return fresh board state
+     * Thread Safety:
+     * Thread-safe but should typically be called when no active games are in progress.
+     *
+     * @param player the player requesting the reset
+     * @return string representation of the reset board state
      * @throws IllegalArgumentException if player is null or empty
      */
     public String reset(String player) {
@@ -138,4 +153,11 @@ public class Commands {
         return board.look(player);
     }
 
+    /**
+     * Checks the representation invariant.
+     * Invariant: board != null
+     */
+    private void checkRep() {
+        assert board != null : "Board must not be null";
+    }
 }
