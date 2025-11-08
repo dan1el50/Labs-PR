@@ -1,0 +1,10 @@
+.idea/
+*.iml
+target/
+.git/
+.gitignore
+README.md
+*.md
+.DS_Store
+Thumbs.db
+*.log

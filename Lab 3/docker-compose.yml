@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  memory-game:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src/main/resources:/app/src/main/resources
+    environment:
+      - JAVA_OPTS=-Xmx512m
+    restart: unless-stopped
+    container_name: memory-scramble-game
+
+networks:
+  default:
+    name: memory-game-network
