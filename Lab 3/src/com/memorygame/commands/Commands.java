@@ -50,15 +50,19 @@ public class Commands {
      * Implements the /flip/:player/:row,:col API endpoint.
      * Handles all game logic including blocking when cards are controlled by other players.
      *
+     * Game Flow:
+     * 1. Board.flip() handles cleanup from previous turn (Rules 3-A, 3-B)
+     * 2. New card is flipped according to game rules (Rules 1, 2)
+     * 3. Board state is returned to client
+     *
      * Precondition:
      * - player must be a non-empty string
      * - 0 <= row < board.rows and 0 <= col < board.cols
      *
      * Postcondition:
-     * - Previous unmatched cards are turned face-down (Rule 3-B)
-     * - Previous matched pairs are removed (Rule 3-A)
      * - Card at (row, col) is flipped according to game rules
      * - Returns string representation of updated board state
+     * - Returns "ERROR: ..." if flip is invalid
      *
      * Thread Safety:
      * Thread-safe because it delegates to Board's synchronized methods.
@@ -70,21 +74,30 @@ public class Commands {
      * @param player the player ID making the move
      * @param row the row index of the card to flip
      * @param col the column index of the card to flip
-     * @return string representation of the updated board state, or "ERROR: <message>"
-     * @throws IllegalArgumentException if player is null/empty or position invalid
+     * @return string representation of the updated board state, or "ERROR: ..."
      */
     public String flip(String player, int row, int col) {
         if (player == null || player.isEmpty()) {
-            throw new IllegalArgumentException("Player ID must not be empty");
-        }
-        if (row < 0 || col < 0) {
-            throw new IllegalArgumentException("Invalid position: (" + row + "," + col + ")");
+            return "ERROR: Player ID must not be empty";
         }
 
         try {
-            board.prepareForNextMove(player);
-            board.flip(row, col, player);
-            return board.look(player);
+            // IMPORTANT: Only cleanup if player does NOT have a first card
+            // If they have a first card, they're trying to flip their SECOND card
+            // Don't cleanup until AFTER the second flip completes!
+            if (!board.hasFirstCard(player)) {
+                // Player has no first card, so cleanup any previous turn's cards
+                board.prepareForNextMove(player);
+            }
+
+            // Now flip the requested card
+            String result = board.flip(row, col, player);
+
+            if (result.equals("OK")) {
+                return board.look(player);
+            } else {
+                return result;
+            }
         } catch (Exception e) {
             return "ERROR: " + e.getMessage();
         }
@@ -94,8 +107,8 @@ public class Commands {
      * Returns the current board state visible to the given player.
      *
      * Implements the /look/:player API endpoint.
-     * Returns text representation where player's cards show as "my <card>",
-     * others' cards as "up <card>", face-down as "down", and removed as "none".
+     * Returns text representation where player's cards show as "my ",
+     * others' cards as "up ", face-down as "down", and removed as "none".
      *
      * Precondition:
      * - player must be a non-empty string
@@ -109,11 +122,10 @@ public class Commands {
      *
      * @param player the player ID requesting the board state
      * @return string representation of the board state visible to this player
-     * @throws IllegalArgumentException if player is null or empty
      */
     public String look(String player) {
         if (player == null || player.isEmpty()) {
-            throw new IllegalArgumentException("Player ID must not be empty");
+            return "ERROR: Player ID must not be empty";
         }
 
         try {
@@ -133,8 +145,9 @@ public class Commands {
      * - player must be a non-empty string
      *
      * Postcondition:
-     * - All cards are face-down (except NONE cards)
+     * - All cards are face-down (except NONE cards which remain NONE)
      * - No players control any cards
+     * - All first card trackers are cleared
      * - Returns fresh board state
      *
      * Thread Safety:
@@ -142,15 +155,18 @@ public class Commands {
      *
      * @param player the player requesting the reset
      * @return string representation of the reset board state
-     * @throws IllegalArgumentException if player is null or empty
      */
     public String reset(String player) {
         if (player == null || player.isEmpty()) {
-            throw new IllegalArgumentException("Player ID must not be empty");
+            return "ERROR: Player ID must not be empty";
         }
 
-        board.resetBoard();
-        return board.look(player);
+        try {
+            board.resetBoard();
+            return board.look(player);
+        } catch (Exception e) {
+            return "ERROR: " + e.getMessage();
+        }
     }
 
     /**
@@ -160,4 +176,21 @@ public class Commands {
     private void checkRep() {
         assert board != null : "Board must not be null";
     }
+
+    /**
+     * Waits for the board state for a player to change. For /watch endpoint.
+     *
+     * @param player player ID watching for updates
+     * @param lastState previous state string as last seen by client
+     * @return new board state for this player (or same if timeout)
+     */
+    public String watch(String player, String lastState) {
+        if (player == null || player.isEmpty()) return "ERROR: Player ID must not be empty";
+        try {
+            return board.waitForChange(player, lastState != null ? lastState : "");
+        } catch (Exception e) {
+            return "ERROR: " + e.getMessage();
+        }
+    }
+
 }

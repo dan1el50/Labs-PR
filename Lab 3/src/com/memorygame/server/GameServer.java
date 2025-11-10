@@ -57,6 +57,7 @@ public class GameServer {
         server.createContext("/look", new LookHandler());
         server.createContext("/flip", new FlipHandler());
         server.createContext("/reset", new ResetHandler());
+        server.createContext("/watch", new WatchHandler());
 
     }
 
@@ -220,6 +221,47 @@ public class GameServer {
         }
     }
 
+    private class WatchHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            try {
+                String path = exchange.getRequestURI().getPath();
+                String[] parts = path.split("/");
+                String player = parts.length > 2 ? parts[2] : "";
+                String lastState = "";
+
+                // Allow previous board state to be sent as a query parameter ?lastState=...
+                if (exchange.getRequestURI().getQuery() != null) {
+                    String query = exchange.getRequestURI().getQuery();
+                    String[] queries = query.split("&");
+                    for (String q : queries) {
+                        if (q.startsWith("lastState=")) {
+                            lastState = java.net.URLDecoder.decode(q.substring(10), "UTF-8");
+                        }
+                    }
+                }
+
+                String response = commands.watch(player, lastState);
+
+                exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
+                exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+                exchange.sendResponseHeaders(200, response.getBytes("UTF-8").length);
+                OutputStream os = exchange.getResponseBody();
+                os.write(response.getBytes("UTF-8"));
+                os.close();
+            } catch (Exception e) {
+                String error = "ERROR: " + e.getMessage();
+                exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
+                exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+                exchange.sendResponseHeaders(400, error.getBytes("UTF-8").length);
+                OutputStream os = exchange.getResponseBody();
+                os.write(error.getBytes("UTF-8"));
+                os.close();
+            }
+        }
+    }
+
+
     /**
      * Main entry point to start the server.
      */
@@ -227,7 +269,7 @@ public class GameServer {
         Board board;
 
         // Choose which board to load (change this to test different boards)
-        String boardFile = args.length > 0 ? args[0] : "perfect.txt";
+        String boardFile = args.length > 0 ? args[0] : "ab.txt";
 
         try {
             board = Board.loadFromFile("src/main/resources/boards/" + boardFile);

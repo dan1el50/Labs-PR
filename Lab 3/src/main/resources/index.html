@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Memory Scramble Game</title>
+    <title>Memory Scramble - Multiplayer</title>
     <style>
         * {
             margin: 0;
@@ -23,8 +23,8 @@
 
         .container {
             background: white;
-            border-radius: 20px;
-            padding: 40px;
+            border-radius: 15px;
+            padding: 15px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             max-width: 600px;
             width: 100%;
@@ -32,441 +32,714 @@
 
         h1 {
             text-align: center;
-            color: #333;
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+
+        .player-input-section {
             margin-bottom: 10px;
-            font-size: 2.5em;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
         }
 
-        .subtitle {
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .input-group label {
+            font-weight: 600;
+            color: #333;
+            min-width: 100px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-group button {
+            padding: 10px 25px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .input-group button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .input-group button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .info-item {
             text-align: center;
+        }
+
+        .info-label {
+            font-size: 12px;
             color: #666;
-            margin-bottom: 30px;
-            font-size: 1.1em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
-        .player-info {
-            background: #f0f0f0;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .player-info label {
+        .info-value {
+            font-size: 20px;
             font-weight: bold;
-            margin-right: 10px;
-            color: #555;
+            color: #667eea;
+            margin-top: 3px;
         }
 
-        .player-info input {
-            padding: 8px 12px;
-            border: 2px solid #667eea;
-            border-radius: 5px;
-            font-size: 1em;
-            width: 200px;
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 8px;
+            animation: pulse 2s infinite;
         }
 
-        .board {
+        .status-indicator.active {
+            background: #28a745;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .color-legend {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .legend-box {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 3px solid;
+        }
+
+        .legend-box.my {
+            border-color: #28a745;
+            background: rgba(40, 167, 69, 0.2);
+        }
+
+        .legend-box.other {
+            border-color: #ffc107;
+            background: rgba(255, 193, 7, 0.2);
+        }
+
+        .game-board {
             display: grid;
-            gap: 15px;
-            margin-bottom: 20px;
-            padding: 20px;
-            background: #f9f9f9;
-            border-radius: 10px;
-        }
-
-        .board.hidden {
-            display: none;
-        }
-
-        .board.grid-3x3 {
-            grid-template-columns: repeat(3, 1fr);
-        }
-
-        .board.grid-2x2 {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .board.grid-4x4 {
-            grid-template-columns: repeat(4, 1fr);
-        }
-
-        .board.grid-5x5 {
-            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            margin: 10px 0;
+            justify-content: center;
         }
 
         .card {
             aspect-ratio: 1;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
-            border-radius: 10px;
+            border-radius: 8px;
+            font-size: 24px;
             cursor: pointer;
-            font-size: 3em;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             color: white;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+            font-weight: bold;
+            box-shadow: 0 3px 4px rgba(0, 0, 0, 0.1);
+            min-width: 45px;
+            min-height: 45px;
+            position: relative;
         }
 
         .card:hover:not(:disabled) {
             transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.6);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
         }
 
         .card:active:not(:disabled) {
             transform: translateY(-2px);
         }
 
+        .card.face-up {
+            background: white;
+            border: 3px solid #667eea;
+            color: #333;
+        }
+
+        .card.my-card {
+            background: white;
+            border: 3px solid #28a745;
+            color: #333;
+            box-shadow: 0 0 20px rgba(40, 167, 69, 0.4);
+        }
+
+        .card.other-player {
+            background: white;
+            border: 3px solid #ffc107;
+            color: #333;
+            box-shadow: 0 0 20px rgba(255, 193, 7, 0.4);
+        }
+
+        .card.removed {
+            background: #e9ecef;
+            cursor: not-allowed;
+            opacity: 0.3;
+        }
+
         .card:disabled {
             cursor: not-allowed;
-            opacity: 0.7;
         }
 
-        .card.face-down {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            font-size: 2em;
+        .player-label {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
         }
 
-        .card.face-up {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        .message {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 500;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .card.controlled {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.6), 0 0 20px rgba(0, 242, 254, 0.4);
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
         }
 
-        .card.matched {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            box-shadow: 0 4px 15px rgba(67, 233, 123, 0.6);
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
         }
 
-        .card.none {
-            background: #ddd;
-            cursor: default;
-            box-shadow: none;
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
 
-        .card.none:hover {
-            transform: none;
+        .message.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
         }
 
-        .status {
-            background: #e3f2fd;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            border-left: 4px solid #667eea;
-            min-height: 60px;
-        }
-
-        .status.hidden {
-            display: none;
-        }
-
-        .status-text {
-            color: #333;
-            font-size: 1em;
-            margin-bottom: 5px;
-        }
-
-        .button-group {
+        .controls {
             display: flex;
             gap: 10px;
             justify-content: center;
             flex-wrap: wrap;
         }
 
-        button {
-            padding: 12px 30px;
-            font-size: 1em;
+        button.control-btn {
+            padding: 10px 25px;
             border: none;
             border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        button.control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button.reset-btn {
+            background: #dc3545;
             color: white;
         }
 
-        .btn-primary:hover {
+        button.reset-btn:hover:not(:disabled) {
+            background: #c82333;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
 
-        .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
-            border: 2px solid #ddd;
+        button.new-game-btn {
+            background: #28a745;
+            color: white;
         }
 
-        .btn-secondary:hover {
-            background: #e0e0e0;
+        button.new-game-btn:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
 
-        .hidden {
-            display: none;
-        }
-
-        .info-box {
-            background: #fff3e0;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            border-left: 4px solid #ff9800;
-            font-size: 0.95em;
+        .loading {
+            text-align: center;
+            padding: 20px;
             color: #666;
         }
 
-        .error {
-            color: #d32f2f;
-            background: #ffebee;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
 
-        .success {
-            color: #388e3c;
-            background: #e8f5e9;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 10px;
+            .card {
+                font-size: 20px;
+                min-width: 40px;
+                min-height: 40px;
+            }
+
+            h1 {
+                font-size: 18px;
+            }
+
+            .color-legend {
+                gap: 15px;
+            }
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🎮 Memory Scramble</h1>
-    <p class="subtitle">Find matching pairs!</p>
+    <h1>🧠 Memory Scramble - Multiplayer</h1>
 
-    <div class="player-info">
-        <label for="playerInput">Your Player ID:</label>
-        <input type="text" id="playerInput" placeholder="e.g., player1" value="player1">
+    <!-- Color Legend Only -->
+    <div class="color-legend">
+        <div class="legend-item">
+            <div class="legend-box my"></div>
+            <span>Your Cards</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-box other"></div>
+            <span>Other Players</span>
+        </div>
     </div>
 
-    <div id="infoBox" class="info-box">
-        💡 <strong>How to play:</strong> Enter your player ID and click "Start Game" to begin. Click cards to flip them and find matching pairs!
+    <!-- Player Name Input -->
+    <div class="player-input-section">
+        <div class="input-group">
+            <label for="playerNameInput">Player Name:</label>
+            <input type="text" id="playerNameInput" placeholder="Enter your name" value="" />
+            <button id="startGameBtn" onclick="startGame()">Join Game</button>
+        </div>
     </div>
 
-    <div id="message" class="status hidden"></div>
-
-    <div id="board" class="board grid-3x3 hidden"></div>
-
-    <div class="button-group">
-        <button id="startBtn" class="btn-primary" onclick="startGame()">Start Game</button>
-        <button id="resetBtn" class="btn-secondary hidden" onclick="resetGame()">Reset Game</button>
+    <div class="info-bar">
+        <div class="info-item">
+            <div class="info-label">Player</div>
+            <div class="info-value" id="playerName">
+                -
+                <span class="status-indicator" id="statusIndicator"></span>
+            </div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Pairs Found</div>
+            <div class="info-value" id="pairsFound">0</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Moves</div>
+            <div class="info-value" id="moveCount">0</div>
+        </div>
     </div>
 
-    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 0.9em; color: #999; text-align: center;">
-        <p>🌐 Server: <strong>localhost:8000</strong></p>
+    <div id="message" class="message info">
+        Enter your name and click "Join Game" to start
+    </div>
+
+    <div id="gameBoard" class="game-board">
+        <div class="loading">Waiting to start...</div>
+    </div>
+
+    <div class="controls">
+        <button class="control-btn reset-btn" id="resetBtn" onclick="resetGame()" disabled>Reset Game</button>
+        <button class="control-btn new-game-btn" id="newGameBtn" onclick="newGame()" disabled>Leave Game</button>
     </div>
 </div>
 
 <script>
-    const API_BASE = 'http://localhost:8000';
-    let gameState = {};
-    let playerID = 'player1';
-    let isWaiting = false;
-    let gameStarted = false;
+    // Configuration
+    const SERVER_URL = 'http://localhost:8000';
+    const WATCH_INTERVAL = 2000; // Check for updates every 2 seconds
 
-    // Start the game
+    // Game state
+    let currentPlayer = null;
+    let boardState = null;
+    let moveCount = 0;
+    let pairsFound = 0;
+    let isProcessing = false;
+    let gameStarted = false;
+    let watchInterval = null;
+    let lastBoardState = '';
+
+    // Start game with player name
     async function startGame() {
-        playerID = document.getElementById('playerInput').value.trim();
-        if (!playerID) {
-            showMessage('⚠️ Please enter a player ID', 'error');
+        const playerInput = document.getElementById('playerNameInput');
+        const playerName = playerInput.value.trim();
+
+        if (!playerName) {
+            showMessage('Please enter a player name!', 'error');
             return;
         }
 
-        // Hide info box and start button
-        document.getElementById('infoBox').classList.add('hidden');
-        document.getElementById('startBtn').classList.add('hidden');
-
-        // Show board and reset button
-        document.getElementById('board').classList.remove('hidden');
-        document.getElementById('resetBtn').classList.remove('hidden');
+        currentPlayer = playerName;
+        document.getElementById('playerName').innerHTML =
+            playerName + '<span class="status-indicator active" id="statusIndicator"></span>';
+        document.getElementById('startGameBtn').disabled = true;
+        playerInput.disabled = true;
 
         gameStarted = true;
-        await refreshBoard();
-        showMessage('🎮 Game started! Find all the matching pairs!', 'success');
+        moveCount = 0;
+        pairsFound = 0;
+        document.getElementById('moveCount').textContent = moveCount;
+        document.getElementById('pairsFound').textContent = pairsFound;
+
+        document.getElementById('resetBtn').disabled = false;
+        document.getElementById('newGameBtn').disabled = false;
+
+        await loadBoard();
+
+        // Start watching for changes from other players
+        startWatching();
+
+        showMessage('🎮 You joined the game! Start flipping cards or wait for other players.', 'success');
     }
 
-    // Reset the game
-    async function resetGame() {
-        if (!confirm('Are you sure you want to reset the game?')) {
+    // Load current board state from server
+    async function loadBoard() {
+        if (!currentPlayer) {
+            showMessage('Please join the game first!', 'error');
             return;
         }
 
         try {
-            // Call the server to reset the board state
-            const response = await fetch(`${API_BASE}/reset/${playerID}`);
+            const url = `${SERVER_URL}/look/${encodeURIComponent(currentPlayer)}`;
+            console.log('Fetching from:', url);
 
-            if (response.ok) {
-                // After server resets, reload the page for a fresh UI
-                window.location.reload();
-            } else {
-                showMessage('❌ Error resetting game', 'error');
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
             }
+
+            const boardText = await response.text();
+            console.log('Received board:', boardText);
+
+            lastBoardState = boardText;
+            parseBoardState(boardText);
+            renderBoard();
         } catch (error) {
-            // If API fails, just reload anyway
-            window.location.reload();
+            showMessage(`Failed to load game: ${error.message}. Is the server running on port 8000?`, 'error');
+            console.error('Load error:', error);
         }
     }
 
+    // Watch for board changes (multiplayer updates)
+    function startWatching() {
+        if (watchInterval) {
+            clearInterval(watchInterval);
+        }
 
-    // Refresh and display the board
-    async function refreshBoard() {
-        try {
-            isWaiting = true;
-            const response = await fetch(`${API_BASE}/look/${playerID}`);
-            const text = await response.text();
-
-            if (!response.ok) {
-                showMessage(`❌ Error: ${text}`, 'error');
-                isWaiting = false;
+        watchInterval = setInterval(async () => {
+            if (!gameStarted || isProcessing) {
                 return;
             }
 
-            parseAndDisplayBoard(text);
-            isWaiting = false;
-        } catch (error) {
-            showMessage(`❌ Connection error: ${error.message}`, 'error');
-            isWaiting = false;
-        }
-    }
+            try {
+                const url = `${SERVER_URL}/watch/${encodeURIComponent(currentPlayer)}`;
+                const response = await fetch(url);
 
-    // Parse board text and display it
-    function parseAndDisplayBoard(boardText) {
-        const lines = boardText.split('\n').filter(l => l.trim());
-        const dims = lines[0].split('x');
-        const rows = parseInt(dims[0]);
-        const cols = parseInt(dims[1]);
+                if (response.ok) {
+                    const boardText = await response.text();
 
-        gameState = {
-            rows: rows,
-            cols: cols,
-            cards: []
-        };
-
-        const boardDiv = document.getElementById('board');
-        boardDiv.className = `board grid-${rows}x${cols}`;
-        boardDiv.innerHTML = '';
-
-        let cardIndex = 0;
-        for (let i = 0; i < rows; i++) {
-            for (let j = 0; j < cols; j++) {
-                const cardText = lines[cardIndex + 1].trim();
-                const card = {
-                    row: i,
-                    col: j,
-                    state: cardText
-                };
-                gameState.cards.push(card);
-
-                const button = createCardButton(i, j, cardText);
-                boardDiv.appendChild(button);
-                cardIndex++;
+                    // Only update if board changed
+                    if (boardText !== lastBoardState) {
+                        console.log('Board updated by another player!');
+                        lastBoardState = boardText;
+                        parseBoardState(boardText);
+                        renderBoard();
+                    }
+                }
+            } catch (error) {
+                console.error('Watch error:', error);
             }
-        }
+        }, WATCH_INTERVAL);
     }
 
-    // Create a card button
-    function createCardButton(row, col, state) {
-        const button = document.createElement('button');
-        button.className = 'card';
-        button.dataset.row = row;
-        button.dataset.col = col;
+    // Parse board state from server response
+    function parseBoardState(boardText) {
+        const lines = boardText.trim().split('\n');
 
-        let displayText = '?';
-        let cssClass = 'face-down';
+        // First line: dimensions (e.g., "3x3")
+        const [rows, cols] = lines[0].split('x').map(Number);
 
-        if (state === 'none') {
-            displayText = '';
-            cssClass = 'none';
-            button.disabled = true;
-        } else if (state === 'down') {
-            displayText = '❓';
-            cssClass = 'face-down';
-        } else if (state.startsWith('my ')) {
-            const card = state.substring(3);
-            displayText = card;
-            cssClass = 'face-up controlled';
-        } else if (state.startsWith('up ')) {
-            const card = state.substring(3);
-            displayText = card;
-            cssClass = 'face-up';
+        // Parse each card position
+        const cards = [];
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            const parts = line.split(' ');
+
+            let card = {
+                state: parts[0], // "my", "up", "down", "none"
+                value: parts.length > 1 ? parts.slice(1).join(' ') : null,
+                row: Math.floor((i - 1) / cols),
+                col: (i - 1) % cols
+            };
+
+            cards.push(card);
         }
 
-        button.textContent = displayText;
-        button.className += ' ' + cssClass;
+        boardState = { rows, cols, cards };
 
-        if (cssClass !== 'none') {
-            button.onclick = () => flipCard(row, col);
-        }
+        // Count pairs found (removed cards)
+        pairsFound = cards.filter(c => c.state === 'none').length / 2;
+        document.getElementById('pairsFound').textContent = pairsFound;
+    }
 
-        return button;
+    // Render the board UI
+    function renderBoard() {
+        const board = document.getElementById('gameBoard');
+        board.innerHTML = '';
+        board.style.gridTemplateColumns = `repeat(${boardState.cols}, 1fr)`;
+
+        boardState.cards.forEach((card, index) => {
+            const button = document.createElement('button');
+            button.className = 'card';
+            button.dataset.row = card.row;
+            button.dataset.col = card.col;
+
+            // Set card appearance based on state
+            if (card.state === 'none') {
+                button.classList.add('removed');
+                button.textContent = '';
+                button.disabled = true;
+            } else if (card.state === 'my') {
+                button.classList.add('my-card');
+                button.textContent = card.value;
+                button.disabled = true;
+
+                // Add player label
+                const label = document.createElement('span');
+                label.className = 'player-label';
+                label.textContent = 'YOU';
+                button.appendChild(label);
+            } else if (card.state === 'up') {
+                button.classList.add('other-player');
+                button.textContent = card.value;
+                button.disabled = true;
+
+                // Add "other" label
+                const label = document.createElement('span');
+                label.className = 'player-label';
+                label.textContent = 'OTHER';
+                button.appendChild(label);
+            } else { // down
+                button.textContent = '?';
+            }
+
+            button.onclick = () => flipCard(card.row, card.col);
+            board.appendChild(button);
+        });
     }
 
     // Flip a card
     async function flipCard(row, col) {
-        if (isWaiting) return;
+        if (isProcessing || !gameStarted) {
+            return;
+        }
+
+        isProcessing = true;
+        moveCount++;
+        document.getElementById('moveCount').textContent = moveCount;
 
         try {
-            isWaiting = true;
-            showMessage('🔄 Processing your move...', 'info');
+            const url = `${SERVER_URL}/flip/${encodeURIComponent(currentPlayer)}/${row},${col}`;
+            console.log('Flipping:', url);
 
-            const response = await fetch(`${API_BASE}/flip/${playerID}/${row},${col}`);
-            const text = await response.text();
+            const response = await fetch(url);
 
             if (!response.ok) {
-                showMessage(`❌ Error: ${text}`, 'error');
-                isWaiting = false;
-                return;
+                throw new Error(`Server returned ${response.status}`);
             }
 
-            parseAndDisplayBoard(text);
+            const result = await response.text();
+            console.log('Flip result:', result);
 
-            // Check if game is won
-            if (isGameWon()) {
-                showMessage('🎉 Congratulations! You found all the pairs!', 'success');
+            if (result.startsWith('ERROR:')) {
+                showMessage(result, 'error');
+                moveCount--;
+                document.getElementById('moveCount').textContent = moveCount;
             } else {
-                showMessage('✅ Move completed!', 'success');
+                lastBoardState = result;
+                parseBoardState(result);
+                renderBoard();
+
+                // Check game state
+                const myCards = boardState.cards.filter(c => c.state === 'my');
+
+                if (myCards.length === 2) {
+                    if (myCards[0].value === myCards[1].value) {
+                        showMessage('✨ Match found! Cards will be removed on next flip.', 'success');
+                    } else {
+                        showMessage('❌ No match. Cards will flip back on next flip.', 'info');
+                    }
+                } else if (myCards.length === 1) {
+                    showMessage('First card flipped! Flip another to find a match.', 'info');
+                } else {
+                    showMessage('Click a card to flip it!', 'info');
+                }
+
+                // Check win condition
+                const totalPairs = (boardState.rows * boardState.cols) / 2;
+                if (pairsFound === totalPairs) {
+                    showMessage(`🎉 Game Over! All pairs found in ${moveCount} moves!`, 'success');
+                }
+            }
+        } catch (error) {
+            showMessage(`Error: ${error.message}`, 'error');
+            console.error('Flip error:', error);
+        } finally {
+            isProcessing = false;
+        }
+    }
+
+    // Reset current game
+    async function resetGame() {
+        if (!gameStarted || !currentPlayer) {
+            return;
+        }
+
+        if (!confirm('Reset the game for ALL players? This affects everyone!')) {
+            return;
+        }
+
+        try {
+            const url = `${SERVER_URL}/reset/${encodeURIComponent(currentPlayer)}`;
+            console.log('Resetting:', url);
+
+            const response = await fetch(url, { method: 'POST' });
+
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}`);
             }
 
-            isWaiting = false;
+            moveCount = 0;
+            pairsFound = 0;
+            document.getElementById('moveCount').textContent = moveCount;
+            document.getElementById('pairsFound').textContent = pairsFound;
+
+            await loadBoard();
+            showMessage('🔄 Game reset by ' + currentPlayer + '!', 'warning');
         } catch (error) {
-            showMessage(`❌ Connection error: ${error.message}`, 'error');
-            isWaiting = false;
+            showMessage(`Failed to reset: ${error.message}`, 'error');
+            console.error('Reset error:', error);
         }
     }
 
-    // Check if all cards are matched (game won)
-    function isGameWon() {
-        return gameState.cards.every(card => card.state === 'none');
+    // Leave game
+    function newGame() {
+        if (confirm('Leave the game? You can rejoin with a different name.')) {
+            // Stop watching
+            if (watchInterval) {
+                clearInterval(watchInterval);
+                watchInterval = null;
+            }
+
+            // Re-enable player input
+            document.getElementById('playerNameInput').disabled = false;
+            document.getElementById('playerNameInput').value = '';
+            document.getElementById('startGameBtn').disabled = false;
+            document.getElementById('playerName').innerHTML = '-';
+
+            // Reset game state
+            currentPlayer = null;
+            gameStarted = false;
+            moveCount = 0;
+            pairsFound = 0;
+            document.getElementById('moveCount').textContent = moveCount;
+            document.getElementById('pairsFound').textContent = pairsFound;
+
+            // Disable game controls
+            document.getElementById('resetBtn').disabled = true;
+            document.getElementById('newGameBtn').disabled = true;
+
+            // Clear board
+            document.getElementById('gameBoard').innerHTML = '<div class="loading">Waiting to start...</div>';
+            showMessage('Enter your name and click "Join Game" to start', 'info');
+        }
     }
 
-    // Show a message
-    function showMessage(text, type = 'info') {
+    // Show message to user
+    function showMessage(text, type) {
         const messageDiv = document.getElementById('message');
-        messageDiv.className = 'status ' + type;
-        messageDiv.innerHTML = text;
-        messageDiv.classList.remove('hidden');
-
-        if (type === 'success' || type === 'error') {
-            setTimeout(() => {
-                if (!isGameWon()) {
-                    messageDiv.classList.add('hidden');
-                }
-            }, 3000);
-        }
+        messageDiv.textContent = text;
+        messageDiv.className = `message ${type}`;
     }
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        if (watchInterval) {
+            clearInterval(watchInterval);
+        }
+    });
 </script>
 </body>
 </html>

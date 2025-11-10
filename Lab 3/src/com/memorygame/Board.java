@@ -9,24 +9,64 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Mutable Board ADT for the Memory Scramble game.
  *
- * Thread-safe implementation using concurrent data structures.
+ * THREAD SAFETY ARGUMENT
+ * ======================
  *
- * Rep Invariant:
- * - rows > 0, cols > 0
- * - board.length == rows, every board[i].length == cols
- * - playerControl only contains entries for FACE_UP_CONTROLLED cards
- * - No two players control the same card
- * - All card identifiers are non-empty strings
+ * This class is thread-safe using the MONITOR PATTERN with bounded waiting.
  *
- * Abstraction Function:
- * - Maps (row, col) to a card state and optionally controlled by player
- * - playerControl maps position "row,col" -> player ID for face-up controlled cards
+ * What Threads Exist:
+ * - Multiple HTTP server threads (from GameServer's thread pool)
+ * - Each thread handles one client request (flip, look, reset)
+ * - Threads are created by HttpServer's cached thread pool
  *
- * Safety from Rep Exposure:
- * - All fields are private
- * - No mutable references returned to caller
- * - All public methods are synchronized
+ * What Data Is Accessed:
+ * - Mutable shared data: board[][], state[][], playerControl, playerFirstCard
+ * - Immutable data: rows, cols (final fields)
+ *
+ * Thread Safety Strategy:
+ *
+ * 1. SYNCHRONIZATION (Monitor Pattern):
+ *    - ALL public methods are synchronized on the Board instance (this)
+ *    - This creates a monitor that ensures mutual exclusion
+ *    - Only ONE thread can execute ANY public method at a time
+ *    - Prevents race conditions on board[][], state[][]
+ *
+ * 2. BOUNDED WAITING (wait/notifyAll):
+ *    - flip() uses wait(50) when card is controlled by another player
+ *    - Timeout prevents deadlock if another player abandons their move
+ *    - notifyAll() wakes waiting threads when state changes
+ *    - All wait() calls are inside synchronized methods (required by Java)
+ *
+ * 3. THREADSAFE DATA TYPES (Optional Reinforcement):
+ *    - playerControl and playerFirstCard use ConcurrentHashMap
+ *    - This is redundant with synchronized but adds defense-in-depth
+ *    - Even if called outside synchronized context, maps are safe
+ *
+ * 4. IMMUTABILITY:
+ *    - rows and cols are final - never change after construction
+ *    - Safe to read without synchronization (getDimensions())
+ *
+ * Why This Is Safe:
+ *
+ * - NO DATA RACES: synchronized ensures only one thread modifies state at a time
+ * - NO DEADLOCK: wait() has timeout; no circular dependencies
+ * - NO STARVATION: notifyAll() wakes ALL waiting threads fairly
+ * - REP INVARIANT PRESERVED: checkRep() called at entry/exit of all mutators
+ * - NO REP EXPOSURE: All methods return immutable Strings or primitive arrays
+ *
+ * Blocking Behavior (Rule 1-D):
+ * - First flip on controlled card: blocks up to 50ms
+ * - If still controlled after timeout, gives up (returns ERROR)
+ * - This implements "try to flip" semantics without indefinite blocking
+ *
+ * Alternative Strategies Considered:
+ * - Message passing: Would require separate thread pool and queues (overkill)
+ * - Fine-grained locking: Would require locks per card (complex, error-prone)
+ * - Lock-free: Would require complex CAS operations (unnecessary)
+ *
+ * The monitor pattern is the simplest correct approach for this problem.
  */
+
 public class Board {
     private final int rows;
     private final int cols;
@@ -216,17 +256,31 @@ public class Board {
      *
      * Implements all game rules for flipping with timeout-based blocking.
      *
-     * @param row the row index
-     * @param col the column index
+     * Precondition:
+     * - 0 <= row < rows
+     * - 0 <= col < cols
+     * - playerId is a non-null, non-empty string
+     *
+     * Postcondition:
+     * - Card state is updated according to game rules
+     * - Returns "ERROR: ..." if invalid position
+     * - Returns "OK" if successful
+     * - Rep invariant is maintained
+     *
+     * Thread Safety:
+     * Synchronized method with timeout-based blocking for controlled cards.
+     *
+     * @param row the row index (0-based)
+     * @param col the column index (0-based)
      * @param playerId the player ID
+     * @return "OK" if successful, "ERROR: message" if invalid
      */
-    public synchronized void flip(int row, int col, String playerId) {
+    public synchronized String flip(int row, int col, String playerId) {
         if (row < 0 || row >= rows || col < 0 || col >= cols) {
-            throw new IllegalArgumentException("Invalid position: (" + row + "," + col + ")");
+            return "ERROR: Invalid position (" + row + "," + col + ")";
         }
 
         checkRep();
-
         String position = row + "," + col;
         String firstCardPos = playerFirstCard.get(playerId);
 
@@ -235,7 +289,7 @@ public class Board {
             // Rule 1-A: No card exists
             if (state[row][col] == CardState.NONE) {
                 checkRep();
-                return;
+                return "ERROR: No card at position (" + row + "," + col + ")";
             }
 
             // Rule 1-D: Card controlled by another player → TRY WITH TIMEOUT
@@ -243,18 +297,19 @@ public class Board {
             if (controller != null && !controller.equals(playerId)) {
                 // Try to wait for up to 50ms for the card to be released
                 try {
-                    this.wait(50);  // TIMEOUT: Don't wait forever
+                    this.wait(50); // TIMEOUT: Don't wait forever
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     checkRep();
-                    return;
+                    return "ERROR: Interrupted while waiting";
                 }
+
                 // After timeout, re-check
                 controller = playerControl.get(position);
                 if (controller != null && !controller.equals(playerId)) {
                     // Still controlled, give up this move
                     checkRep();
-                    return;
+                    return "ERROR: Card controlled by another player";
                 }
             }
 
@@ -265,7 +320,7 @@ public class Board {
                 playerFirstCard.put(playerId, position);
                 this.notifyAll();
                 checkRep();
-                return;
+                return "OK";
             }
 
             // Rule 1-C: Face-up uncontrolled → player takes control
@@ -275,7 +330,7 @@ public class Board {
                 playerFirstCard.put(playerId, position);
                 this.notifyAll();
                 checkRep();
-                return;
+                return "OK";
             }
 
             // Already controlled by this player
@@ -283,7 +338,7 @@ public class Board {
                 if (playerId.equals(controller)) {
                     playerFirstCard.put(playerId, position);
                     checkRep();
-                    return;
+                    return "OK";
                 }
             }
         }
@@ -298,7 +353,7 @@ public class Board {
             if (state[firstRow][firstCol] == CardState.NONE) {
                 playerFirstCard.remove(playerId);
                 checkRep();
-                return;
+                return "ERROR: First card was removed";
             }
 
             String firstCard = board[firstRow][firstCol];
@@ -310,7 +365,7 @@ public class Board {
                 playerFirstCard.remove(playerId);
                 this.notifyAll();
                 checkRep();
-                return;
+                return "ERROR: No card at position (" + row + "," + col + ")";
             }
 
             // Rule 2-B: Card controlled by someone
@@ -321,7 +376,7 @@ public class Board {
                 playerFirstCard.remove(playerId);
                 this.notifyAll();
                 checkRep();
-                return;
+                return "ERROR: Card controlled by another player";
             }
 
             // Rule 2-C: Face-down → turn face-up
@@ -338,9 +393,8 @@ public class Board {
                     playerFirstCard.remove(playerId);
                     this.notifyAll();
                     checkRep();
-                    return;
+                    return "OK";
                 }
-
                 // Rule 2-E: Cards don't match → both uncontrolled
                 else {
                     state[firstRow][firstCol] = CardState.FACE_UP_UNCONTROLLED;
@@ -349,7 +403,7 @@ public class Board {
                     playerFirstCard.remove(playerId);
                     this.notifyAll();
                     checkRep();
-                    return;
+                    return "OK";
                 }
             }
 
@@ -360,12 +414,14 @@ public class Board {
                 playerFirstCard.remove(playerId);
                 this.notifyAll();
                 checkRep();
-                return;
+                return "OK";
             }
         }
 
         checkRep();
+        return "OK";
     }
+
 
     /**
      * Removes matched pairs controlled by this player.
@@ -459,47 +515,71 @@ public class Board {
     /**
      * Returns the board state visible to a player.
      *
-     * Format:
-     * ```
+     * Format follows MIT spec:
+     * - First line: "ROWSxCOLS"
+     * - Following lines: one card state per line (row-major order)
+     * - States: "none", "down", "up CARD", "my CARD"
+     *
+     * Example output for 3x3 board:
      * 3x3
+     * down
+     * down
      * my 🦄
      * down
-     * ...
-     * ```
+     * up 🌈
+     * down
+     * none
+     * down
+     * down
      *
-     * @param playerId the player ID
+     * Precondition:
+     * - playerId is a non-null, non-empty string
+     *
+     * Postcondition:
+     * - Board state is unchanged
+     * - Returns string representation conforming to MIT spec
+     *
+     * Thread Safety:
+     * Synchronized method - safe for concurrent access.
+     *
+     * @param playerId the player ID (used to distinguish "my" vs "up" cards)
      * @return string representation of board state
      */
     public synchronized String look(String playerId) {
         checkRep();
-
         StringBuilder sb = new StringBuilder();
+
+        // First line: dimensions
         sb.append(rows).append("x").append(cols).append("\n");
 
+        // Each card on its own line, row by row, left to right
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
                 String position = i + "," + j;
                 CardState cardState = state[i][j];
 
                 if (cardState == CardState.NONE) {
-                    sb.append("none\n");
+                    sb.append("none");
                 } else if (cardState == CardState.FACE_DOWN) {
-                    sb.append("down\n");
+                    sb.append("down");
                 } else if (cardState == CardState.FACE_UP_CONTROLLED) {
                     String controller = playerControl.get(position);
-                    if (playerId.equals(controller)) {
-                        sb.append("my ").append(board[i][j]).append("\n");
+                    if (controller != null && controller.equals(playerId)) {
+                        sb.append("my ").append(board[i][j]);
                     } else {
-                        sb.append("up ").append(board[i][j]).append("\n");
+                        sb.append("up ").append(board[i][j]);
                     }
                 } else if (cardState == CardState.FACE_UP_UNCONTROLLED) {
-                    sb.append("up ").append(board[i][j]).append("\n");
+                    sb.append("up ").append(board[i][j]);
                 }
+                sb.append("\n");
             }
         }
 
+        checkRep();
         return sb.toString();
     }
+
 
     /**
      * Resets the board to initial state (all cards face-down).
@@ -586,4 +666,68 @@ public class Board {
             assert !playerId.isEmpty() : "Player ID must not be empty";
         }
     }
+
+    /**
+     * Blocks until the visible board state for playerId changes from lastState, or a timeout elapses.
+     * Used for "watch" real-time updates.
+     *
+     * @param playerId the player to watch for visible changes
+     * @param lastState the board state previously seen
+     * @return new board state string (may be same as lastState if timeout)
+     */
+    public synchronized String waitForChange(String playerId, String lastState) {
+        final long timeout = 20000; // 20 seconds
+        final long interval = 250;  // check every 250ms
+        long start = System.currentTimeMillis();
+
+        try {
+            while (look(playerId).equals(lastState)) {
+                long elapsed = System.currentTimeMillis() - start;
+                long remaining = timeout - elapsed;
+                if (remaining <= 0) break;
+                wait(Math.min(interval, remaining));
+            }
+        } catch (InterruptedException e) {
+            // If interrupted, return current state
+            Thread.currentThread().interrupt();
+        }
+        // Always return the latest state (may be same as lastState if timeout/interrupt)
+        return look(playerId);
+    }
+
 }
+
+/**
+ * ============================================================================
+ * REFLECTION ON DESIGN, TESTING, AND EXPERIENCE
+ * (for MIT 6.102 PS4, Problem 5)
+ * ============================================================================
+ *
+ * DESIGN CHOICES:
+ * - Used the Monitor pattern (synchronized methods and notify/wait) for simplicity and robustness.
+ * - Kept all board state and player mappings internal and private, never exposing mutable references.
+ * - Used explicit thread safety arguments and checkRep for confidence in correctness.
+ * - Provided clean separation of concerns (Board ADT, Commands API, HTTP server layer).
+ *
+ * TRADEOFFS:
+ * - Synchronizing all Board methods improves safety, but could decrease throughput under heavy concurrent load (fine-grained locks not pursued due to problem scale).
+ * - Using notifyAll() is less efficient than notify(), but it avoids missed signals and is simple to debug/test.
+ * - Real-time watching is implemented using long-poll/blocking (not async/WebSocket); simple but potentially inefficient for highly interactive UIs.
+ *
+ * TESTING & DEBUGGING:
+ * - Used JUnit for ADT tests, and SimulationMain for concurrency stress-testing.
+ * - Tested endpoint behavior manually and via browser, verified /watch and /flip with concurrent and multi-user scenarios.
+ *
+ * CHALLENGES & LESSONS:
+ * - Thread safety with blocking and notifyAll() required careful reasoning and incremental testing.
+ * - Documenting rep invariants and thread safety arguments helped catch subtle bugs early.
+ * - Coordinating endpoint spellings, query strings, and browser interaction took iterative refinement.
+ *
+ * POSSIBLE FUTURE IMPROVEMENTS:
+ * - Use WebSockets instead of long-polling for /watch to improve UI responsiveness.
+ * - Implement per-card locks if highly concurrent loads are expected.
+ * - Add richer status reporting in HTTP API, e.g., JSON responses.
+ *
+ * OVERALL:
+ * - The project reinforced the importance of separation of concerns, defensive programming, and explicit documentation in multithreaded networked systems.
+ */
