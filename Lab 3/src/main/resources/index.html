@@ -411,8 +411,8 @@
     </div>
 
     <div class="controls">
-        <button class="control-btn reset-btn" id="resetBtn" onclick="resetGame()" disabled>Reset Game</button>
-        <button class="control-btn new-game-btn" id="newGameBtn" onclick="newGame()" disabled>Leave Game</button>
+<!--        <button class="control-btn reset-btn" id="resetBtn" onclick="resetGame()" disabled>Reset Game</button>-->
+<!--        <button class="control-btn new-game-btn" id="newGameBtn" onclick="newGame()" disabled>Leave Game</button>-->
     </div>
 </div>
 
@@ -453,8 +453,8 @@
         document.getElementById('moveCount').textContent = moveCount;
         document.getElementById('pairsFound').textContent = pairsFound;
 
-        document.getElementById('resetBtn').disabled = false;
-        document.getElementById('newGameBtn').disabled = false;
+        // document.getElementById('resetBtn').disabled = false;
+        // document.getElementById('newGameBtn').disabled = false;
 
         await loadBoard();
 

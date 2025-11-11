@@ -5,6 +5,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
+import java.util.HashSet;
 
 /**
  * Mutable Board ADT for the Memory Scramble game.
@@ -74,6 +76,13 @@ public class Board {
     private final CardState[][] state; // Card states
     private final Map<String, String> playerControl; // Maps "row,col" -> playerId
     private final Map<String, String> playerFirstCard; // Maps playerId -> "row,col"
+    /**
+     * Maps playerId to the set of card positions ("row,col") they left face-up uncontrolled
+     * after their last non-matching flip. These cards should be flipped back face-down
+     * when that player makes their next move (Rule 3-B).
+     */
+    private final Map<String, Set<String>> playerLastUncontrolled = new ConcurrentHashMap<>();
+
 
     /**
      * Constructs a Board with given dimensions and card layout.
@@ -256,6 +265,17 @@ public class Board {
      *
      * Implements all game rules for flipping with timeout-based blocking.
      *
+     * Rules:
+     * - Rule 1-A: No card → ERROR
+     * - Rule 1-B: Face-down (first flip) → Turn face-up, player controls
+     * - Rule 1-C: Face-up uncontrolled (first flip) → Player takes control
+     * - Rule 1-D: Controlled by another player → Block/wait with timeout
+     * - Rule 2-A: No card (second flip) → ERROR, lose first card
+     * - Rule 2-B: Controlled by another (second flip) → ERROR, lose first card
+     * - Rule 2-C: Face-down (second flip) → Turn face-up
+     * - Rule 2-D: Second card matches first → Both stay controlled
+     * - Rule 2-E: Second card doesn't match → Both become uncontrolled, tracked for cleanup
+     *
      * Precondition:
      * - 0 <= row < rows
      * - 0 <= col < cols
@@ -400,6 +420,13 @@ public class Board {
                     state[row][col] = CardState.FACE_UP_UNCONTROLLED;
                     playerControl.remove(firstCardPos);
                     playerFirstCard.remove(playerId);
+
+                    // Track these as THIS player's uncontrolled cards (Rule 3-B)
+                    Set<String> uncontrolled = new HashSet<>();
+                    uncontrolled.add(firstCardPos);
+                    uncontrolled.add(position);
+                    playerLastUncontrolled.put(playerId, uncontrolled);
+
                     this.notifyAll();
                     checkRep();
                     return "OK";
@@ -428,6 +455,13 @@ public class Board {
                     state[row][col] = CardState.FACE_UP_UNCONTROLLED;
                     playerControl.remove(firstCardPos);
                     playerFirstCard.remove(playerId);
+
+                    // Track these as THIS player's uncontrolled cards (Rule 3-B)
+                    Set<String> uncontrolled = new HashSet<>();
+                    uncontrolled.add(firstCardPos);
+                    uncontrolled.add(position);
+                    playerLastUncontrolled.put(playerId, uncontrolled);
+
                     this.notifyAll();
                     checkRep();
                     return "OK";
@@ -438,6 +472,7 @@ public class Board {
         checkRep();
         return "OK";
     }
+
 
 
     /**
@@ -479,31 +514,38 @@ public class Board {
     }
 
     /**
-     * Prepares board for player's next move.
-     * Removes matched pairs and turns unmatched cards face-down.
+     * Prepare board for player's next move (Rule 3):
+     * - Remove matched pairs that this player controls (Rule 3-A)
+     * - Turn back face-down any cards that THIS PLAYER left face-up uncontrolled (Rule 3-B)
      *
-     * Rule 3-A: Remove matched pairs
-     * Rule 3-B: Unmatched face-up cards turn face-down
-     *
-     * @param playerId the player ID
+     * @param playerId the player making their next move
      */
     public synchronized void prepareForNextMove(String playerId) {
         checkRep();
 
-        // First remove matched pairs
+        // Rule 3-A: Remove matched pairs controlled by this player
         removeMatchedPairs(playerId);
 
-        // Then turn uncontrolled face-up cards face-down
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                if (state[i][j] == CardState.FACE_UP_UNCONTROLLED) {
-                    state[i][j] = CardState.FACE_DOWN;
+        // Rule 3-B: Turn back face-down ONLY THIS PLAYER'S uncontrolled cards
+        Set<String> myUncontrolled = playerLastUncontrolled.get(playerId);
+        if (myUncontrolled != null) {
+            for (String pos : myUncontrolled) {
+                String[] parts = pos.split(",");
+                int row = Integer.parseInt(parts[0]);
+                int col = Integer.parseInt(parts[1]);
+
+                // Only flip back if still uncontrolled (another player didn't take it)
+                if (state[row][col] == CardState.FACE_UP_UNCONTROLLED) {
+                    state[row][col] = CardState.FACE_DOWN;
                 }
             }
+            // Clear this player's uncontrolled cards list
+            playerLastUncontrolled.remove(playerId);
         }
 
         checkRep();
     }
+
 
     /**
      * Checks if a player has a first card waiting for a second flip.
