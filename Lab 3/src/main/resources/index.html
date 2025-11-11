@@ -570,7 +570,7 @@
             if (card.state === 'none') {
                 button.classList.add('removed');
                 button.textContent = '';
-                button.disabled = true;
+                // Removed button.disabled = true to allow error messages when clicking empty spaces
             } else if (card.state === 'my') {
                 button.classList.add('my-card');
                 button.textContent = card.value;
@@ -584,7 +584,7 @@
             } else if (card.state === 'up') {
                 button.classList.add('other-player');
                 button.textContent = card.value;
-                button.disabled = true;
+                //button.disabled = true;
 
                 // Add "other" label
                 const label = document.createElement('span');
@@ -627,6 +627,19 @@
                 showMessage(result, 'error');
                 moveCount--;
                 document.getElementById('moveCount').textContent = moveCount;
+
+                // Refresh board state after error to show lost control (Rule 2-A)
+                try {
+                    const lookResponse = await fetch(`${SERVER_URL}/look/${encodeURIComponent(currentPlayer)}`);
+                    if (lookResponse.ok) {
+                        const lookResult = await lookResponse.text();
+                        lastBoardState = lookResult;
+                        parseBoardState(lookResult);
+                        renderBoard();
+                    }
+                } catch (lookError) {
+                    console.error('Error refreshing board after error:', lookError);
+                }
             } else {
                 lastBoardState = result;
                 parseBoardState(result);

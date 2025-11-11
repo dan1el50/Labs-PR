@@ -379,6 +379,33 @@ public class Board {
                 return "ERROR: Card controlled by another player";
             }
 
+            // Rule 2-C-extended: Face-up uncontrolled → player can take it as second card
+            if (state[row][col] == CardState.FACE_UP_UNCONTROLLED) {
+                String secondCard = board[row][col];
+
+                // Check if cards match
+                if (firstCard.equals(secondCard)) {
+                    // Match! Both cards controlled by player
+                    state[firstRow][firstCol] = CardState.FACE_UP_CONTROLLED;
+                    state[row][col] = CardState.FACE_UP_CONTROLLED;
+                    playerControl.put(firstCardPos, playerId);
+                    playerControl.put(position, playerId);
+                    playerFirstCard.remove(playerId);
+                    this.notifyAll();
+                    checkRep();
+                    return "OK";
+                } else {
+                    // No match → both become uncontrolled
+                    state[firstRow][firstCol] = CardState.FACE_UP_UNCONTROLLED;
+                    state[row][col] = CardState.FACE_UP_UNCONTROLLED;
+                    playerControl.remove(firstCardPos);
+                    playerFirstCard.remove(playerId);
+                    this.notifyAll();
+                    checkRep();
+                    return "OK";
+                }
+            }
+
             // Rule 2-C: Face-down → turn face-up
             if (state[row][col] == CardState.FACE_DOWN) {
                 state[row][col] = CardState.FACE_UP_UNCONTROLLED;
@@ -405,16 +432,6 @@ public class Board {
                     checkRep();
                     return "OK";
                 }
-            }
-
-            // Already face-up uncontrolled → treat as no match
-            if (state[row][col] == CardState.FACE_UP_UNCONTROLLED) {
-                state[firstRow][firstCol] = CardState.FACE_UP_UNCONTROLLED;
-                playerControl.remove(firstCardPos);
-                playerFirstCard.remove(playerId);
-                this.notifyAll();
-                checkRep();
-                return "OK";
             }
         }
 
